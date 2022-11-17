@@ -6,7 +6,6 @@ exports.sendChat = asyncHandler(async (req, res, next) => {
     const chatRoomName = req.params.chatRoomName;
     const message = req.body.message;
     const chatRoom = mongoose.model(chatRoomName, ChatSchema);
-    console.log(req.user.email)
     chatRoom.create({
         id: req.user.id,
         owner:{email:req.user.email},
@@ -18,7 +17,6 @@ exports.sendChat = asyncHandler(async (req, res, next) => {
 });
 
 exports.getChats = asyncHandler(async (req, res, next) => {
-    console.log('kkasfss')
     const chatRoomName = req.params.chatRoomName;
     const chatRoom = mongoose.model(chatRoomName, ChatSchema);
     const data = await chatRoom.find()
