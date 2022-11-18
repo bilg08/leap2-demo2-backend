@@ -10,7 +10,7 @@ const cors = require("cors");
 const errorHandler = require("./middleware/error");
 const http = require("http").Server(app);
 const corsOptions = {
-  origin: "https://backend-leap2-production.up.railway.app",
+  origin: "https://student-assignment-project-front-g87zala5p-bilg08.vercel.app",
 };
 app.use(cors(corsOptions));
 
@@ -20,7 +20,7 @@ dotenv.config({ path: "./config.env" });
 
 const socketIO = require("socket.io")(http, {
   cors: {
-    origin: "https://backend-leap2-production.up.railway.app",
+    origin: "https://student-assignment-project-front-g87zala5p-bilg08.vercel.app",
   },
 });
 
