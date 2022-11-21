@@ -20,6 +20,7 @@ dotenv.config({ path: "./config.env" });
 
 const socketIO = require("socket.io")(http, {
   cors: {
+  
     origin: "https://student-assignment-project-front-g87zala5p-bilg08.vercel.app",
   },
 });
