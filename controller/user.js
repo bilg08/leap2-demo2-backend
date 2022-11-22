@@ -20,6 +20,7 @@ exports.login = asyncHandler(async (req, res) => {
     const token = user.getJsonWebToken();
     res.status(200).json({
       token,
+      data:user
     });
   }
 });
@@ -41,6 +42,7 @@ exports.createUser = async (req, res) => {
 };
 exports.getUserInfo = async (req, res) => {
   const user = await UserSchema.findById(req.user.id);
+  console.log();
 
   res.status(200).json({
     data: user,

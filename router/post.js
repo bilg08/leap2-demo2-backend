@@ -9,10 +9,9 @@ const {
   createPost,
   getPostPhoto,
   createPostPhoto,
-  requestToWorkInThePost,
+  addToWorkers,
   confirmWorkRequest,
   showPostToBeDone,
-  removeWorkerFromPost,
 } = require("../controller/post");
 router.route("/photo/:photoname").get(getPostPhoto);
 
@@ -20,11 +19,10 @@ router.get("/", getPosts)
 router.post("/",checkAccessToken,createPost);
 router.route("/:id/photo").post( createPostPhoto);
 
-router.route('/:id/work').post(checkAccessToken, requestToWorkInThePost);
+router.route('/:id/work').post(checkAccessToken, addToWorkers);
 
 router.route('/:id/confirmWorkRequest').post(checkAccessToken,confirmWorkRequest);
-router.route('/postToBeDone').get(checkAccessToken,showPostToBeDone);
-router.route('/:id/removeWorker').delete(checkAccessToken,removeWorkerFromPost)
+router.route('/postToBeDone').get(checkAccessToken,showPostToBeDone)
 
 router
   .get("/:id", getPost)

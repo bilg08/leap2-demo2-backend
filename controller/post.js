@@ -1,12 +1,11 @@
 const PostSchema = require("../model/postSchema");
 const UserSchema = require("../model/user");
-const ChatSchema = require("../model/chat");
+const ChatSchema = require('../model/chat');
 const MyError = require("../utils/myError");
 const asyncHandler = require("../middleware/asyncHandler");
 const path = require("path");
 const fs = require("fs");
-const e = require("express");
-const { default: mongoose } = require("mongoose");
+const mongoose = require('mongoose')
 
 exports.getPosts = asyncHandler(async (req, res, next) => {
   const posts = await PostSchema.find();
@@ -55,10 +54,10 @@ exports.createPost = asyncHandler(async (req, res, next) => {
   const newPost = await PostSchema.create(req.body);
   const file = req.files.file;
   file.name = `photo_${newPost.id}${path.parse(file.name).ext}`;
-
   file.mv(`./images/post/${file.name}`, (err) => {
     if (err) {
     }
+    console.log("amjilttai");
   });
   newPost.owner = req.user.id;
   newPost.photo = file.name;
@@ -92,91 +91,205 @@ exports.updatePost = asyncHandler(async (req, res, next) => {
   }
 });
 
-exports.requestToWorkInThePost = asyncHandler(async (req, res, next) => {
+exports.addToWorkers = asyncHandler(async (req, res, next) => {
+
   const post = await PostSchema.findById(req.params.id);
   const postOwner = await UserSchema.findById(post.owner);
   const requestedPerson = await UserSchema.findById(req.user.id);
   const postOwnerChatRooms = postOwner.chatRooms;
   const requestedPersonChatRooms = requestedPerson.chatRooms;
+        console.log(post.owner.toString(), req.user.id);
 
-  if (!post) {
-    throw new MyError("iim zar baihgui", 400);
-  }
-  if (post.owner.toString() === req.user.id) {
-    throw new MyError("ene tanii zar baina", 400);
-  }
-  const postPendingRequest = post.pendingRequest;
-  if (postPendingRequest.length === 0) {
-    if (
-      !postOwnerChatRooms.includes(req.user.id) &&
-      !requestedPersonChatRooms.includes(post.owner.toString())
-    ) {
-      const chatRoomName = `chatRoom_${req.user.id}_${post.owner.toString()}`;
-      const chatRoom = await mongoose.model(chatRoomName, ChatSchema);
-      const user = await UserSchema.findById(req.user.id);
-
-      const newPendingRequest = [
-        ...postPendingRequest,
-        {
-          averageRating: user.averageRating,
-          email: user.email,
-          id: user._id,
-          chatRoomName: chatRoomName,
-          takeRequestToBeConfirmed:false
-        },
-      ];
-      post.pendingRequest = newPendingRequest;
-      post.save();
-      res.status(200).json({
-        success: true,
-        data: post,
-      });
-
-      await UserSchema.findByIdAndUpdate(req.user.id, {
-        chatRooms: [...requestedPersonChatRooms, chatRoomName],
-      });
-      await UserSchema.findByIdAndUpdate(post.owner, {
-        chatRooms: [...postOwnerChatRooms, chatRoomName],
-      });
-    }
-  } else if (postPendingRequest.length > 0) {
-    postPendingRequest.map(async (pendingRequest) => {
-      if (pendingRequest.id.toString() === req.user.id) {
-        throw new MyError("ta ene zart huselt ilgeesen baina", 400);
-      }
-      const user = await UserSchema.findById(req.user.id);
-      if (
-        !postOwnerChatRooms.includes(req.user.id) &&
-        !requestedPersonChatRooms.includes(post.owner.toString())
-      ) {
+  if (post.owner.toString() !== req.user.id) {
         const chatRoomName = `chatRoom_${req.user.id}_${post.owner.toString()}`;
-        const chatRoom = mongoose.model(chatRoomName, ChatSchema);
-
-        await UserSchema.findByIdAndUpdate(req.user.id, {
-          chatRooms: [...requestedPersonChatRooms, chatRoomName],
-        });
-        await UserSchema.findByIdAndUpdate(post.owner, {
-          chatRooms: [...postOwnerChatRooms, chatRoomName],
-        });
-
+      if (
+       ( !postOwnerChatRooms.includes(chatRoomName) &&
+          !requestedPersonChatRooms.includes(chatRoomName))
+      ) {
+        await mongoose.model(chatRoomName, ChatSchema);
+        const user = await UserSchema.findById(req.user.id);
+        const postPendingRequest = post.pendingRequest;
         const newPendingRequest = [
           ...postPendingRequest,
           {
             averageRating: user.averageRating,
             email: user.email,
             id: user._id,
-            chatRoomName,
+            chatRoomName: chatRoomName,
           },
         ];
+        await UserSchema.findByIdAndUpdate(req.user.id, {
+          chatRooms: [...requestedPersonChatRooms, chatRoomName],
+        });
+        await UserSchema.findByIdAndUpdate(post.owner, {
+          chatRooms: [...postOwnerChatRooms, chatRoomName],
+        });
         post.pendingRequest = newPendingRequest;
         post.save();
         res.status(200).json({
           success: true,
           data: post,
         });
+      } else {
+        res.status(400).json({
+          success: false,
+          data: 'ta ene zarand huselt ilgeesen baina',
+        });
       }
-    });
-  }
+    }
+
+  // const postPendingRequest = post.pendingRequest;
+  // if (postPendingRequest.length === 0) {
+  //   if (
+  //     !postOwnerChatRooms.includes(req.user.id) &&
+  //     !requestedPersonChatRooms.includes(post.owner.toString())
+  //   ) {
+      // const chatRoomName = `chatRoom_${req.user.id}_${post.owner.toString()}`;
+      // const chatRoom = await mongoose.model(chatRoomName, ChatSchema);
+      // const user = await UserSchema.findById(req.user.id);
+
+
+      // const newPendingRequest = [
+      //   ...postPendingRequest,
+      //   {
+      //     averageRating: user.averageRating,
+      //     email: user.email,
+      //     id: user._id,
+      //     chatRoomName: chatRoomName,
+      //   },
+      // ];
+      // post.pendingRequest = newPendingRequest;
+      // post.save();
+      // res.status(200).json({
+      //   success: true,
+      //   data: post,
+      // });
+
+      // await UserSchema.findByIdAndUpdate(req.user.id, {
+      //   chatRooms: [...requestedPersonChatRooms, chatRoomName],
+      // });
+      // await UserSchema.findByIdAndUpdate(post.owner, {
+      //   chatRooms: [...postOwnerChatRooms, chatRoomName],
+      // });
+  //   }
+  // } else if (postPendingRequest.length > 0) {
+  //   postPendingRequest.map(async (pendingRequest) => {
+  //     if (pendingRequest.id.toString() === req.user.id) {
+  //       throw new MyError("ta ene zart huselt ilgeesen baina", 400);
+  //     }
+  //     const user = await UserSchema.findById(req.user.id);
+  //     if (
+  //       !postOwnerChatRooms.includes(req.user.id) &&
+  //       !requestedPersonChatRooms.includes(post.owner.toString())
+  //     ) {
+  //       const chatRoomName = `chatRoom_${req.user.id}_${post.owner.toString()}`;
+  //       const chatRoom = mongoose.model(chatRoomName, ChatSchema);
+
+  //       await UserSchema.findByIdAndUpdate(req.user.id, {
+  //         chatRooms: [...requestedPersonChatRooms, chatRoomName],
+  //       });
+  //       await UserSchema.findByIdAndUpdate(post.owner, {
+  //         chatRooms: [...postOwnerChatRooms, chatRoomName],
+  //       });
+
+  //       const newPendingRequest = [
+  //         ...postPendingRequest,
+  //         {
+  //           averageRating: user.averageRating,
+  //           email: user.email,
+  //           id: user._id,
+  //           chatRoomName,
+  //         },
+  //       ];
+  //       post.pendingRequest = newPendingRequest;
+  //       post.save();
+        // res.status(200).json({
+        //   success: true,
+        //   data: post,
+        // });
+  //     }
+  //   });
+  // }
+
+  // if (!post) {
+  //   throw new MyError("iim zar baihgui", 400);
+  // }
+  // if (post.owner.toString() === req.user.id) {
+  //   throw new MyError("ene tanii zar baina", 400);
+  // }
+  // const postPendingRequest = post.pendingRequest;
+  // if (postPendingRequest.length === 0) {
+  //   if (
+  //     !postOwnerChatRooms.includes(req.user.id) &&
+  //     !requestedPersonChatRooms.includes(post.owner.toString())
+  //   ) {
+  //     const chatRoomName = `chatRoom_${req.user.id}_${post.owner.toString()}`;
+  //     const chatRoom = await mongoose.model(chatRoomName, ChatSchema);
+  //     const user = await UserSchema.findById(req.user.id);
+
+  //     console.log(chatRoomName);
+
+  //     const newPendingRequest = [
+  //       ...postPendingRequest,
+  //       {
+  //         averageRating: user.averageRating,
+  //         email: user.email,
+  //         id: user._id,
+  //         chatRoomName: chatRoomName,
+  //       },
+  //     ];
+  //     post.pendingRequest = newPendingRequest;
+  //     post.save();
+  //     res.status(200).json({
+  //       success: true,
+  //       data: post,
+  //     });
+
+  //     await UserSchema.findByIdAndUpdate(req.user.id, {
+  //       chatRooms: [...requestedPersonChatRooms, chatRoomName],
+  //     });
+  //     await UserSchema.findByIdAndUpdate(post.owner, {
+  //       chatRooms: [...postOwnerChatRooms, chatRoomName],
+  //     });
+  //   }
+  // } else if (postPendingRequest.length > 0) {
+  //   postPendingRequest.map(async (pendingRequest) => {
+  //     if (pendingRequest.id.toString() === req.user.id) {
+  //       throw new MyError("ta ene zart huselt ilgeesen baina", 400);
+  //     }
+  //     const user = await UserSchema.findById(req.user.id);
+  //     if (
+  //       !postOwnerChatRooms.includes(req.user.id) &&
+  //       !requestedPersonChatRooms.includes(post.owner.toString())
+  //     ) {
+  //       const chatRoomName = `chatRoom_${req.user.id}_${post.owner.toString()}`;
+  //       const chatRoom = mongoose.model(chatRoomName, ChatSchema);
+
+  //       await UserSchema.findByIdAndUpdate(req.user.id, {
+  //         chatRooms: [...requestedPersonChatRooms, chatRoomName],
+  //       });
+  //       await UserSchema.findByIdAndUpdate(post.owner, {
+  //         chatRooms: [...postOwnerChatRooms, chatRoomName],
+  //       });
+
+  //       const newPendingRequest = [
+  //         ...postPendingRequest,
+  //         {
+  //           averageRating: user.averageRating,
+  //           email: user.email,
+  //           id: user._id,
+  //           chatRoomName,
+  //         },
+  //       ];
+  //       post.pendingRequest = newPendingRequest;
+  //       post.save();
+  //       res.status(200).json({
+  //         success: true,
+  //         data: post,
+  //       });
+  //     }
+  //   });
+  // }
 });
 
 exports.getPostPhoto = asyncHandler(async (req, res, next) => {
@@ -200,7 +313,6 @@ exports.confirmWorkRequest = asyncHandler(async (req, res, next) => {
           post.worker.averageRating = worker.averageRating;
           post.worker.id = worker.id;
           post.worker.email = worker.email;
-          post.worker.chatRoomName = request.chatRoomName
           post.save();
           res.status(200).json({
             success: true,
@@ -208,8 +320,7 @@ exports.confirmWorkRequest = asyncHandler(async (req, res, next) => {
           });
         }
       });
-    } 
-    else {
+    } else {
       res.status(400).json({
         error: `${post.worker.id} tai hund ta ene zariig ogson baina`,
       });
@@ -240,23 +351,4 @@ exports.showPostToBeDone = asyncHandler(async (req, res, next) => {
   }
   let data = getPostUserInterested();
   res.status(200).json({ data });
-});
-
-
-exports.removeWorkerFromPost = asyncHandler(async (req, res, next) => {
-  const post = await PostSchema.findById(req.params.id)
- const user = await UserSchema.findById(req.body.workerId)
- if(post.owner.toString()===req.user.id){
-   if(user._id.toString()===post.worker.id){
-    post.worker.averageRating=0;
-    post.worker.chatRoomName="";
-    post.worker.email="";
-    post.worker.id="",
-    post.save()
-    res.status(200).json({
-      data:{post}
-     })
-   }
- }
-  
 });

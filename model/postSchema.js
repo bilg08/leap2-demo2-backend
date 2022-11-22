@@ -23,8 +23,7 @@ const PostSchema = new mongoose.Schema({
     type:{
       id:String,
       averageRating:Number,
-      email:String,
-      chatRoomName:String
+      email:String
     },
     required:true,
     default:{
@@ -38,8 +37,7 @@ const PostSchema = new mongoose.Schema({
       id:String,
       averageRating:Number,
       email:String,
-      chatRoomName:String,
-      takeRequestToBeConfirmed:Boolean||false
+      chatRoomName:String
     }],
     required: true,
     default: []
