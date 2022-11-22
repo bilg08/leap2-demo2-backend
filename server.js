@@ -10,7 +10,7 @@ const cors = require("cors");
 const errorHandler = require("./middleware/error");
 const http = require("http").Server(app);
 const corsOptions = {
-  origin: "https://student-assignment-project-front-c768f7owy-bilg08.vercel.app",
+  origin: "http://localhost:3000",
 };
 app.use(cors(corsOptions));
 
@@ -20,7 +20,7 @@ dotenv.config({ path: "./config.env" });
 
 const socketIO = require("socket.io")(http, {
   cors: {
-    origin: "https://student-assignment-project-front-c768f7owy-bilg08.vercel.app",
+    origin: "http://localhost:3000",
   },
 });
 
