@@ -20,7 +20,7 @@ exports.login = asyncHandler(async (req, res) => {
     const token = user.getJsonWebToken();
     res.status(200).json({
       token,
-      data:user
+      data: user
     });
   }
 });
@@ -28,8 +28,10 @@ exports.login = asyncHandler(async (req, res) => {
 exports.createUser = async (req, res) => {
   try {
     const user = await UserSchema.create(req.body);
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(user.password, salt);
     const token = user.getJsonWebToken();
-
+     user.save()
     res.status(200).json({
       data: user,
       token,
@@ -41,12 +43,40 @@ exports.createUser = async (req, res) => {
   }
 };
 exports.getUserInfo = async (req, res) => {
-  const user = await UserSchema.findById(req.user.id);
-  console.log();
+  let user = await UserSchema.findById(req.user.id);
+  const worksByCategoriesAvg = await PostSchema.aggregate([
+    { $match: { "worker.id": req.user.id } },
+    { $match: { isDone: true } },
+    { $group: { _id: "$group", avg: { $avg: "$worker.averageRating" } ,sum:{$sum:1}} },
+  ]);
+ 
+ async function computeAverageRating() {
+    let data = 0
+     const userWorkedPost = await PostSchema.aggregate([
+    { $match: { "worker.id": req.user.id } },
+    { $match: { isDone: true } },
+  ]);
+    userWorkedPost.map((el) => {
+      data += el.worker.averageRating;
+    });
+   return (parseInt(data/userWorkedPost.length))
+  }   
+ 
+  if (worksByCategoriesAvg.length > 0) {
+    let avgRating = await computeAverageRating();
+    user.averageRating = avgRating
+    user.averageRatingByGroupByGroup = worksByCategoriesAvg;
+    user.save();
+    res.status(200).json({
+      data: user,
+    });
 
-  res.status(200).json({
-    data: user,
-  });
+  } else {
+   res.status(200).json({
+     data: await UserSchema.findById(req.user.id),
+   }); 
+  }
+   
 };
 exports.getUserPosts = async (req, res) => {
   try {
@@ -66,7 +96,7 @@ exports.PostsUserHaveToDo = async (req, res) => {
 };
 
 exports.updateUser = asyncHandler(async (req, res, next) => {
-  const user = await UserSchema.findByIdAndUpdate(req.user.id, req.body, {
+  const user = await UserSchema.findByIdAndUpdate(req.user.id, req.body.data, {
     new: true,
     runValidators: true,
   });

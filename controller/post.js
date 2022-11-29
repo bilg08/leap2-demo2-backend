@@ -1,32 +1,56 @@
-const PostSchema = require("../model/postSchema");
-const UserSchema = require("../model/user");
-const ChatSchema = require('../model/chat');
-const MyError = require("../utils/myError");
-const asyncHandler = require("../middleware/asyncHandler");
-const path = require("path");
-const fs = require("fs");
-const mongoose = require('mongoose')
-
+let PostSchema = require("../model/postSchema");
+let UserSchema = require("../model/user");
+let ChatSchema = require("../model/chat");
+let MyError = require("../utils/myError");
+let asyncHandler = require("../middleware/asyncHandler");
+let path = require("path");
+let fs = require("fs");
+let mongoose = require("mongoose");
+let {isOwner} = require('../service/user')
 exports.getPosts = asyncHandler(async (req, res, next) => {
-  const { userid } = req.headers;
-  let posts = await PostSchema.find();
-  if (userid !== null || userid !== undefined) {
-    posts = posts.filter(post => {
-      return post.owner.toString() !== userid
-    })
+  let posts;
+  let {school,group,subject} = req.query;
+  let limit = parseInt(req.query.limit) || 5;
+  let page = parseInt(req.query.page);
+  delete req.query.page
+  let total = await PostSchema.countDocuments();
+  let pageCount = Math.ceil(total / limit);
+  let start = (page - 1) * limit + 1;
+  let end = start + limit - 1;
+  if (end > total) end = total;
+  let pagination = { page, total, pageCount, start, end };
+  if (page < pageCount) pagination.nextPage = page + 1;
+  if (page > 1) pagination.prevPage = page - 1;
+  if (req.query.school === "" || req.query.group === "" || req.query.subject === "") {
+     posts = await PostSchema.find()
+       .limit(limit)
+       .skip(start - 1);
+  } else {
+    posts = await PostSchema.aggregate([
+      {
+        $match: { school, group, subject },
+      },
+    ])
+      
   }
+   
+  
+
+    
+  
   res.status(200).json({
-    success: true,
+    status: false,
     data: posts,
+    pagination,
   });
+
 });
 
 exports.getPost = asyncHandler(async (req, res, next) => {
-  const posts = await PostSchema.findById(req.params.id);
+  let posts = await PostSchema.findById(req.params.id);
   if (!posts) {
     throw new MyError("not found", 400);
   }
-
   res.status(200).json({
     success: true,
     data: posts,
@@ -34,8 +58,8 @@ exports.getPost = asyncHandler(async (req, res, next) => {
 });
 
 exports.createPostPhoto = asyncHandler(async (req, res, next) => {
-  const post = await PostSchema.findById(req.params.id);
-  const file = req.files.file;
+  let post = await PostSchema.findById(req.params.id);
+  let file = req.files.file;
   if (!file.mimetype.startsWith("image")) {
     res.status(400).json({
       data: "ТА ЗУРАГ ОРУУЛНА УУ",
@@ -57,13 +81,12 @@ exports.createPostPhoto = asyncHandler(async (req, res, next) => {
 });
 
 exports.createPost = asyncHandler(async (req, res, next) => {
-  const newPost = await PostSchema.create(req.body);
-  const file = req.files.file;
+  let newPost = await PostSchema.create(req.body);
+  let file = req.files.file;
   file.name = `photo_${newPost.id}${path.parse(file.name).ext}`;
   file.mv(`./images/post/${file.name}`, (err) => {
     if (err) {
     }
-    console.log("amjilttai");
   });
   newPost.owner = req.user.id;
   newPost.photo = file.name;
@@ -75,7 +98,7 @@ exports.createPost = asyncHandler(async (req, res, next) => {
 });
 
 exports.deletePost = asyncHandler(async (req, res, next) => {
-  const posts = await PostSchema.findByIdAndDelete(req.params.id);
+  let posts = await PostSchema.findByIdAndDelete(req.params.id);
 
   if (!posts) {
     throw new MyError("not found", 400);
@@ -87,7 +110,7 @@ exports.deletePost = asyncHandler(async (req, res, next) => {
 });
 
 exports.updatePost = asyncHandler(async (req, res, next) => {
-  const posts = await PostSchema.findByIdAndUpdate(req.params.id, req.body, {
+  let posts = await PostSchema.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true,
   });
@@ -98,65 +121,57 @@ exports.updatePost = asyncHandler(async (req, res, next) => {
 });
 
 exports.addToWorkers = asyncHandler(async (req, res, next) => {
-  console.log('addToWorkers')
-  const post = await PostSchema.findById(req.params.id);
-  const postOwner = await UserSchema.findById(post.owner);
-  const requestedPerson = await UserSchema.findById(req.user.id);
-  const postOwnerChatRooms = postOwner.chatRooms;
-  const requestedPersonChatRooms = requestedPerson.chatRooms;
 
-  function isUserExistedInPendingRequest() {
-    let isExist;
-    post.pendingRequest.map(el => {
-      if(el.id!==req.user.id) {
-        isExist = false;
-        return 
-      }
-      isExist = true;
-      return isExist
-    })
-  }
-  isUserExistedInPendingRequest()
-  if (isUserExistedInPendingRequest()|| post.pendingRequest.length === 0) {
+
+  let post = await PostSchema.findById((req.params.id));
+  let postOwner = await UserSchema.findById(post.owner);
+  let requestedPerson = await UserSchema.findById(req.user.id);
+  let postOwnerChatRooms = postOwner.chatRooms;
+  let requestedPersonChatRooms = requestedPerson.chatRooms;
+
+  //huselt yvuulsan hereglegc omno ni huselt yvuulsan esehiig shalgaj baina
+  let isExistInPendingRequest = post.pendingRequest.findIndex(
+    (req1) => req1.id === req.user.id
+  ); 
+  if (isExistInPendingRequest === -1 || post.pendingRequest.length === 0) {
     if (post.owner.toString() !== req.user.id) {
-      const chatRoomName = `chatRoom_${req.user.id}_${post.owner.toString()}`;
-     
-        await mongoose.model(chatRoomName, ChatSchema);
-        const user = await UserSchema.findById(req.user.id);
-        const postPendingRequest = post.pendingRequest;
-        const newPendingRequest = [
-          ...postPendingRequest,
-          {
-            averageRating: user.averageRating,
-            email: user.email,
-            id: user._id,
-            chatRoomName: chatRoomName,
-          },
-        ];
-        await UserSchema.findByIdAndUpdate(req.user.id, {
-          chatRooms: [...requestedPersonChatRooms, chatRoomName],
-        });
-        await UserSchema.findByIdAndUpdate(post.owner, {
-          chatRooms: [...postOwnerChatRooms, chatRoomName],
-        });
-        post.pendingRequest = newPendingRequest;
-        post.save();
-        res.status(200).json({
-          success: true,
-          data: post,
-        });
-      } 
-  }else {
+      let chatRoomName = `chatRoom_${req.user.id}_${post.owner.toString()}`;
+
+      await mongoose.model(chatRoomName, ChatSchema);
+      let user = await UserSchema.findById(req.user.id);
+      let postPendingRequest = post.pendingRequest;
+      let newPendingRequest = [
+        ...postPendingRequest,
+        {
+          averageRating: user.averageRating,
+          email: user.email,
+          id: user._id,
+          chatRoomName: chatRoomName,
+        },
+      ];
+      await UserSchema.findByIdAndUpdate(req.user.id, {
+        chatRooms: [...requestedPersonChatRooms, chatRoomName],
+      });
+      await UserSchema.findByIdAndUpdate(post.owner, {
+        chatRooms: [...postOwnerChatRooms, chatRoomName],
+      });
+      post.pendingRequest = newPendingRequest;
+      post.save();
+      res.status(200).json({
+        success: true,
+        data: post,
+      });
+    }
+  } else {
     res.status(400).json({
       success: false,
-      data: 'ta ene zarand huselt ilgeesen baina',
+      data: "ta ene zarand huselt ilgeesen baina",
     });
-}
-
+  }
 });
 
 exports.getPostPhoto = asyncHandler(async (req, res, next) => {
-  const { photoname } = req.params;
+  let { photoname } = req.params;
   fs.readFile(`./images/post/${photoname}`, (err, data) => {
     if (err) {
     }
@@ -166,16 +181,16 @@ exports.getPostPhoto = asyncHandler(async (req, res, next) => {
 });
 
 exports.confirmWorkRequest = asyncHandler(async (req, res, next) => {
-  const post = await PostSchema.findById(req.params.id);
-
+  let post = await PostSchema.findById(req.params.id);
   if (post.owner.toString() === req.user.id) {
     if (post.worker.id === "") {
       post.pendingRequest.map(async (request) => {
         if (request.id === req.body.workerId) {
-          const worker = await UserSchema.findById(req.body.workerId);
+          let worker = await UserSchema.findById(req.body.workerId);
           post.worker.averageRating = worker.averageRating;
           post.worker.id = worker.id;
           post.worker.email = worker.email;
+          post.worker.chatRoomName = request.chatRoomName
           post.save();
           res.status(200).json({
             success: true,
@@ -191,21 +206,52 @@ exports.confirmWorkRequest = asyncHandler(async (req, res, next) => {
   }
 });
 
+exports.cancelWorkRequest = asyncHandler(async (req, res, next) => {
+  let post = await PostSchema.findById(req.params.id);
+  post.worker.id = "";
+  post.worker.email = "",
+  post.worker.averageRating = 0;
+  post.isDone = false;
+  post.save();
+  res.status(200).json({
+    data:post
+  })
+});
+
+
+exports.rateWorkerPerformance = asyncHandler(async (req, res, next) => {
+  const {rating} = req.body
+  const post = await PostSchema.findById(req.params.id)
+  const IsOwner = await isOwner(req.params.id, req.user.id);
+  if (IsOwner) {
+    post.worker.averageRating = rating;
+    post.isDone = true;
+    post.save();
+    res.status(200).json({
+      success:true
+    })
+  }
+});
+
+
+
+
+
 exports.showPostToBeDone = asyncHandler(async (req, res, next) => {
-  const Posts = await PostSchema.find();
+  let Posts = await PostSchema.find();
   function getPostUserInterested() {
     let data = [];
     for (let i = 0; i < Posts.length; i++) {
       for (let j = 0; j < Posts[i].pendingRequest.length; j++) {
         if (Posts[i].pendingRequest[j].email === req.user.email) {
-
           data.push({
-            subject: Posts[i].subject,
-            advertisingHeader: Posts[i].advertisingHeader,
-            photo: Posts[i].photo,
-            price: Posts[i].price,
-            detail: Posts[i].detail,
-            chatRoom: Posts[i].pendingRequest[j].chatRoomName
+            subject: { ...Posts[i] }._doc.subject,
+            advertisingHeader: { ...Posts[i] }._doc.advertisingHeader,
+            isDone: { ...Posts[i] }._doc.isDone,
+            photo: { ...Posts[i] }._doc.photo,
+            price: { ...Posts[i] }._doc.price,
+            detail: { ...Posts[i] }._doc.detail,
+            chatRoom: Posts[i].pendingRequest[j].chatRoomName,
           });
         }
       }
