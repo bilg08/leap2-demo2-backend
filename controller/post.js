@@ -37,7 +37,6 @@ exports.getPosts = asyncHandler(async (req, res, next) => {
   } else {
     posts = await getAllPostWithLimitandSkip(limit, start);
   }
-
   res.status(200).json({
     status: false,
     data: posts,
